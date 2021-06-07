@@ -58,7 +58,9 @@ static double calculateDistance(double x1, double y1, double x2, double y2, int 
     return sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2));
 }
 
-/***************************************************************************/ /**
+static double calculateMahalanobisDistance(double x1, double y1, double x2, double y2, )
+
+    /***************************************************************************/ /**
  *
  *  core_dcmg - Generate covariance matrix A in dense format between two sets of locations (l1, l2) (Matern Kernel).
  *  The routine makes only one pass through the tile A.
@@ -96,7 +98,7 @@ static double calculateDistance(double x1, double y1, double x2, double y2, int 
  *
  *
  ******************************************************************************/
-void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *l1, location *l2, location *lm, double *localtheta, int distance_metric)
+    void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *l1, location *l2, location *lm, double *localtheta, int distance_metric)
 {
 
     double l1x, l1y, l2x, l2y;
@@ -147,7 +149,7 @@ void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *
             expr = 2 * sqrt(nu) * calculateDistance(l1x, l1y, l2x, l2y, distance_metric);
 
             if (expr == 0)
-                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + 1; // Need to add the first term of the indicator
+                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + 1; // Need to add the first term of the indicator function
             else
                 A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr);
         }
