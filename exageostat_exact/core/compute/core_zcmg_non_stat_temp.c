@@ -58,9 +58,21 @@ static double calculateDistance(double x1, double y1, double x2, double y2, int 
     return sqrt(pow((x2 - x1), 2) + pow((y2 - y1), 2));
 }
 
-static double calculateMahalanobisDistance(double x1, double y1, double x2, double y2, )
+static double calculateMahalanobisDistance(double x1, double y1, double x2, double y2, double a11, double a12, double a21, double a22)
+{
 
-    /***************************************************************************/ /**
+    double diffx = x1 - x2;
+    double diffy = y1 - y2;
+
+    double el1 = a11 * diffx + a21 * diffy;
+    double el2 = a12 * diffx + a22 * diffy;
+
+    double ans = el1 * diffx + el2 * diffy;
+
+    return ans;
+}
+
+/***************************************************************************/ /**
  *
  *  core_dcmg - Generate covariance matrix A in dense format between two sets of locations (l1, l2) (Matern Kernel).
  *  The routine makes only one pass through the tile A.
@@ -98,7 +110,7 @@ static double calculateMahalanobisDistance(double x1, double y1, double x2, doub
  *
  *
  ******************************************************************************/
-    void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *l1, location *l2, location *lm, double *localtheta, int distance_metric)
+void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *l1, location *l2, double *localtheta, int distance_metric)
 {
 
     double l1x, l1y, l2x, l2y;
@@ -131,6 +143,15 @@ static double calculateMahalanobisDistance(double x1, double y1, double x2, doub
     // Calculating determinant of (sigma_i + sigma_j)/2
     double det_A = (a_i + a_j) * (d_i + d_j) / 4 - (b_i + b_j) * (c_i + c_j) / 4;
 
+    // Calculating elements of inverse of (sigma_i + sigma_j)/2 
+    double a_k = (1 / det_A) * ((d_i + d_j) / 2);
+    double b_k = -(1 / det_A) * ((c_i + c_j) / 2);
+    double c_k = -(1 / det_A) * ((b_i + b_j) / 2);
+    double d_k = (1 / det_A) * ((a_i + a_j) / 2);
+
+    // Nugget effect
+    double tau = localtheta[10];
+
     con = std_dev_i * std_dev_j * pow(det_sigma_i, 0.25) * pow(det_sigma_j, 0.25) * pow(det_A, -0.5);
 
     for (int j = 0; j < n; j++)
@@ -143,13 +164,15 @@ static double calculateMahalanobisDistance(double x1, double y1, double x2, doub
             l2x = l2->x[i + m0];
             l2y = l2->y[i + m0];
 
-            // Calculation of Mahalabobis Distance
+            // Calculation of Qij as mentioned in the paper
+            double Qij =  calculateMahalanobisDistance(l1x, l1y, l2x, l2y, a_k, b_k, c_k, d_k);
+            
 
             // Need to use Mahalanobis Distance
-            expr = 2 * sqrt(nu) * calculateDistance(l1x, l1y, l2x, l2y, distance_metric);
+            expr = 2 * sqrt(nu * Qij);
 
-            if (expr == 0)
-                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + 1; // Need to add the first term of the indicator function
+            if (Qij == 0)
+                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + tau; // Need to add the first term of the indicator function
             else
                 A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr);
         }
