@@ -110,6 +110,7 @@ static double calculateMahalanobisDistance(double x1, double y1, double x2, doub
  *
  *
  ******************************************************************************/
+
 void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *l1, location *l2, double *localtheta, int distance_metric)
 {
 
@@ -143,7 +144,7 @@ void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *
     // Calculating determinant of (sigma_i + sigma_j)/2
     double det_A = (a_i + a_j) * (d_i + d_j) / 4 - (b_i + b_j) * (c_i + c_j) / 4;
 
-    // Calculating elements of inverse of (sigma_i + sigma_j)/2 
+    // Calculating elements of inverse of (sigma_i + sigma_j)/2
     double a_k = (1 / det_A) * ((d_i + d_j) / 2);
     double b_k = -(1 / det_A) * ((c_i + c_j) / 2);
     double c_k = -(1 / det_A) * ((b_i + b_j) / 2);
@@ -165,14 +166,61 @@ void core_dcmg_non_stat_temp(double *A, int m, int n, int m0, int n0, location *
             l2y = l2->y[i + m0];
 
             // Calculation of Qij as mentioned in the paper
-            double Qij =  calculateMahalanobisDistance(l1x, l1y, l2x, l2y, a_k, b_k, c_k, d_k);
-            
+            double Qij = calculateMahalanobisDistance(l1x, l1y, l2x, l2y, a_k, b_k, c_k, d_k);
 
             // Need to use Mahalanobis Distance
             expr = 2 * sqrt(nu * Qij);
 
             if (Qij == 0)
                 A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + tau; // Need to add the first term of the indicator function
+            else
+                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr);
+        }
+    }
+}
+
+void core_dcmg_non_stat_temp_yuxiao(double *A, int m, int n, int m0, int n0, location *l1, location *l2, double *localtheta, int distance_metric)
+{
+
+    double l1x, l1y, l2x, l2y;
+
+    double expr = 0.0;
+    double con, sigma_square, beta, nu;
+
+
+    for (int j = 0; j < n; j++)
+    {
+        l1x = l1->x[j + n0];
+        l1y = l1->y[j + n0];
+
+        double nu_1 = 0.1 * pow(e, -0.5 * (l1x + l1y));
+        double sigma_1 = 0.33 * pow(e, -(l1x + l1y)) + 0.8;
+        double lambda_1 = 0.04 * pow(e, sin(0.5 * PI * l1x) + sin(0.5 * PI, l1y));
+        double det_covariance_1 = lambda_1 * lambda_1;
+
+        for (int i = 0; i < m; i++)
+        {
+            l2x = l2->x[i + m0];
+            l2y = l2->y[i + m0];
+
+            double nu_2 = 0.1 * pow(e, -0.5 * (l2x + l2y)) + 0.3;
+            double sigma_2 = 0.33 * pow(e, -(l2x + l2y)) + 0.8;
+            double lambda_2 = 0.04 * pow(e, sin(0.5 * PI * l2x) + sin(0.5 * PI, l2y));
+            double det_covariance_2 = lambda_2 * lambda_2;
+
+            double det_A = (lambda_1 + lambda_2) * (lambda_1 + lambda_2) / 4;
+
+            double nu = (nu_1 + nu_2) / 2;
+
+            double Qij = calculateMahalanobisDistance(l1x, l1y, l2x, l2y, 2.0 / (lambda_1 + lambda_2), 0, 0, 2 / (lambda_1 + lambda_2));
+            
+            con = sigma_1 * sigma_2 * pow(det_covariance_1, 0.25) * pow(det_covariance_2, 0.25) * pow(det_A, -0.5);
+
+            // Need to use Mahalanobis Distance
+            expr = 2 * sqrt(nu * Qij);
+
+            if (Qij == 0)
+                A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr) + ; // Need to make considerations for i=j case
             else
                 A[i + j * m] = con * pow(expr, nu) * gsl_sf_bessel_Knu(nu, expr);
         }
